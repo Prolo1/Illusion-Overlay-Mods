@@ -228,29 +228,73 @@ namespace KoiSkinOverlayX
         private void SetTexAndUpdate(byte[] tex, TexType texType)
         {
             var ctrl = GetOverlayController();
-            var overlay = ctrl.SetOverlayTex(tex, texType);
+            if (texType == TexType.EyeOver || texType == TexType.EyeUnder)
+            {
+                SetTexAndUpdateLoc(texType + 2);
+                SetTexAndUpdateLoc(texType + 4);
+            }
+            else
+            {
+                SetTexAndUpdateLoc(texType);
+            }
 
-            _textureChanged.OnNext(new KeyValuePair<TexType, Texture2D>(texType, overlay?.Texture));
+            void SetTexAndUpdateLoc(TexType tType)
+            {
+                var overlay = ctrl.SetOverlayTex(tex, tType);
+                _textureChanged.OnNext(new KeyValuePair<TexType, Texture2D>(tType, overlay?.Texture));
+            }
         }
 
         private void SetupTexControls(RegisterCustomControlsEvent e, MakerCategory makerCategory, BaseUnityPlugin owner, TexType texType, string title)
         {
+            var radButtons = texType == TexType.EyeOver || texType == TexType.EyeUnder ?
+                e.AddControl(new MakerRadioButtons(makerCategory, owner, "Eye to edit", "Both", "Left", "Right")) :
+                null;
+
+            TexType GetTexType(bool cantBeBoth)
+            {
+                if (radButtons != null)
+                {
+                    if (radButtons.Value == 0)
+                        return cantBeBoth ? texType + 2 : texType; // left or both
+                    if (radButtons.Value == 1)
+                        return texType + 2; // left
+                    if (radButtons.Value == 2)
+                        return texType + 4; // right
+                }
+                return texType;
+            }
+
             e.AddControl(new MakerText(title, makerCategory, owner));
 
+            var forceAllowBoth = false;
             var bi = e.AddControl(new MakerImage(null, makerCategory, owner) { Height = 150, Width = 150 });
             _textureChanged.Subscribe(
                 d =>
                 {
-                    if (d.Key == texType)
+                    var incomingType = d.Key;
+                    if (!forceAllowBoth)
+                    {
+                        // If left and right images are different, and we have Both selected, change selection to Left instead
+                        var currentType = GetTexType(false);
+                        if (radButtons != null && (currentType == TexType.EyeOver && incomingType == TexType.EyeOverR || currentType == TexType.EyeUnder && incomingType == TexType.EyeUnderR))
+                        {
+                            var leftTex = GetTex(GetTexType(true));
+                            if (d.Value != leftTex?.Texture)
+                                radButtons.Value = 1;
+                        }
+                    }
+
+                    if (incomingType == GetTexType(true))
                         bi.Texture = d.Value;
                 });
 
             e.AddControl(new MakerButton("Load new texture", makerCategory, owner))
                 .OnClick.AddListener(
-                    () => OpenFileDialog.Show(strings => OnFileAccept(strings, texType), "Open overlay image", GetDefaultLoadDir(), FileFilter, FileExt));
+                    () => OpenFileDialog.Show(strings => OnFileAccept(strings, GetTexType(false)), "Open overlay image", GetDefaultLoadDir(), FileFilter, FileExt));
 
             e.AddControl(new MakerButton("Clear texture", makerCategory, owner))
-                .OnClick.AddListener(() => SetTexAndUpdate(null, texType));
+                .OnClick.AddListener(() => SetTexAndUpdate(null, GetTexType(false)));
 
             e.AddControl(new MakerButton("Export current texture", makerCategory, owner))
                 .OnClick.AddListener(
@@ -258,16 +302,30 @@ namespace KoiSkinOverlayX
                     {
                         try
                         {
-                            var ctrl = GetOverlayController();
-                            var tex = ctrl.Overlays.FirstOrDefault(x => x.Key == texType).Value;
+                            var tex = GetTex(GetTexType(true));
                             if (tex == null) return;
-                            WriteAndOpenPng(tex.Data, texType.ToString());
+                            WriteAndOpenPng(tex.Data, GetTexType(false).ToString());
                         }
                         catch (Exception ex)
                         {
                             Logger.Log(LogLevel.Error | LogLevel.Message, "[KSOX] Failed to export texture - " + ex.Message);
                         }
                     });
+
+            radButtons?.ValueChanged.Subscribe(i =>
+            {
+                forceAllowBoth = true;
+                var safeType = GetTexType(true);
+                _textureChanged.OnNext(new KeyValuePair<TexType, Texture2D>(safeType, GetTex(safeType)?.Texture));
+                forceAllowBoth = false;
+            });
+        }
+
+        private OverlayTexture GetTex(TexType type)
+        {
+            var ctrl = GetOverlayController();
+            var overlayTexture = ctrl.Overlays.FirstOrDefault(x => x.Key == type).Value;
+            return overlayTexture;
         }
 
         public static string GetDefaultLoadDir()
@@ -310,7 +368,7 @@ namespace KoiSkinOverlayX
                     else
                         Logger.Log(LogLevel.Message, "[KSOX] Texture imported successfully");
 
-                    SetTexAndUpdate(tex.EncodeToPNG(), _typeToLoad);
+                    SetTexAndUpdate(tex.EncodeToPNG(), _typeToLoad); //todo see if original is smaller size?
                 }
                 catch (Exception ex)
                 {
@@ -339,6 +397,10 @@ namespace KoiSkinOverlayX
                     return 1024;
                 case TexType.EyeUnder:
                 case TexType.EyeOver:
+                case TexType.EyeUnderL:
+                case TexType.EyeOverL:
+                case TexType.EyeUnderR:
+                case TexType.EyeOverR:
                     return 512;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(texType), texType, null);

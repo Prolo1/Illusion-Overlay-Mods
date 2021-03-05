@@ -15,5 +15,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Skin\AdditionalTexture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Skin\OverlayTexture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Skin\Util.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TextureStorage.cs" />
   </ItemGroup>
 </Project>

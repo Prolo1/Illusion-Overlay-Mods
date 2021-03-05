@@ -1,4 +1,6 @@
-﻿namespace KoiSkinOverlayX
+﻿using System;
+
+namespace KoiSkinOverlayX
 {
     /// <summary>
     /// Names are important, don't change! - used for filenames and extended data keys
@@ -10,7 +12,13 @@
         FaceOver,
         BodyUnder,
         FaceUnder,
+        [Obsolete]
         EyeUnder,
-        EyeOver
+        [Obsolete]
+        EyeOver,
+        EyeUnderL,
+        EyeOverL,
+        EyeUnderR,
+        EyeOverR
     }
 }

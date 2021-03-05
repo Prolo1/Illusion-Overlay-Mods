@@ -41,6 +41,25 @@ namespace KoiSkinOverlayX
             RemoveAllOverlays(false);
 
             var data = GetExtendedData();
+            if (data != null)
+            {
+                if (data.version <= 1)
+                    ReadLegacyData(data);
+                else
+                    ReadData(data);
+            }
+
+            if (needsUpdate || _overlays.Any())
+                UpdateTexture(TexType.Unknown);
+        }
+
+        private void ReadData(PluginData data)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void ReadLegacyData(PluginData data)
+        {
             foreach (TexType texType in Enum.GetValues(typeof(TexType)))
             {
                 if (texType == TexType.Unknown) continue;
@@ -49,7 +68,20 @@ namespace KoiSkinOverlayX
                     && data.data.TryGetValue(texType.ToString(), out var texData)
                     && texData is byte[] bytes && bytes.Length > 0)
                 {
-                    _overlays.Add(texType, new OverlayTexture(bytes));
+                    if (texType == TexType.EyeOver)
+                    {
+                        _overlays.Add(TexType.EyeOverL, new OverlayTexture(bytes));
+                        _overlays.Add(TexType.EyeOverR, new OverlayTexture(bytes));
+                    }
+                    else if (texType == TexType.EyeUnder)
+                    {
+                        _overlays.Add(TexType.EyeUnderL, new OverlayTexture(bytes));
+                        _overlays.Add(TexType.EyeUnderR, new OverlayTexture(bytes));
+                    }
+                    else
+                    {
+                        _overlays.Add(texType, new OverlayTexture(bytes));
+                    }
                     continue;
                 }
 
@@ -58,9 +90,6 @@ namespace KoiSkinOverlayX
                 if (oldTex != null)
                     _overlays.Add(texType, new OverlayTexture(oldTex));
             }
-
-            if (needsUpdate || _overlays.Any())
-                UpdateTexture(TexType.Unknown);
         }
 
         public void ApplyOverlayToRT(RenderTexture bodyTexture, TexType overlayType)
@@ -143,6 +172,11 @@ namespace KoiSkinOverlayX
                     break;
                 case TexType.EyeUnder:
                 case TexType.EyeOver:
+                    throw new ArgumentException("Shouldn't happen"); //todo remove?
+                case TexType.EyeUnderL:
+                case TexType.EyeOverL:
+                case TexType.EyeUnderR:
+                case TexType.EyeOverR:
                     cc.ChangeSettingEye(true, true, true);
                     break;
                 default:
