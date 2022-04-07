@@ -135,7 +135,7 @@ namespace KoiClothesOverlayX
                     }
                 }
 
-                controller.ApplyOverlays(clothesCtrl);
+                controller.ApplyOverlays(clothesCtrl,(ChaFileDefine.ClothesKind)kind);
             }
 
             private static ChaClothesComponent GetCustomClothesComponent(ChaControl chaControl, bool main, int kind)

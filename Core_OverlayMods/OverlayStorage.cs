@@ -24,231 +24,235 @@ namespace KoiSkinOverlayX
     }
 #endif
 
-    public class OverlayStorage
-    {
-        private const string OverlayDataKey = "Lookup";
+	public class OverlayStorage
+	{
+		private const string OverlayDataKey = "Lookup";
 
-        private readonly TextureStorage _textureStorage;
-        private readonly ChaControl _chaControl;
-        private Dictionary<CoordinateType, Dictionary<TexType, int>> _allOverlayTextures;
+#pragma warning disable CS0436 // Type conflicts with imported type
+		private readonly TextureStorage _textureStorage;
+#pragma warning restore CS0436 // Type conflicts with imported type
+		private readonly ChaControl _chaControl;
+		private Dictionary<CoordinateType, Dictionary<TexType, int>> _allOverlayTextures;
 
-        public OverlayStorage(CharaCustomFunctionController controller)
-        {
-            _chaControl = controller.ChaControl;
-            _textureStorage = new TextureStorage();
-            _allOverlayTextures = new Dictionary<CoordinateType, Dictionary<TexType, int>>();
-        }
+		public OverlayStorage(CharaCustomFunctionController controller)
+		{
+			_chaControl = controller.ChaControl;
+#pragma warning disable CS0436 // Type conflicts with imported type
+			_textureStorage = new TextureStorage();
+#pragma warning restore CS0436 // Type conflicts with imported type
+			_allOverlayTextures = new Dictionary<CoordinateType, Dictionary<TexType, int>>();
+		}
 
-        private Dictionary<TexType, int> GetCurrentOverlayTextures()
-        {
+		private Dictionary<TexType, int> GetCurrentOverlayTextures()
+		{
 #if KK || KKS
-            // Need to do this instead of polling the CurrentCoordinate prop because it's updated too late
-            var coordinateType = (CoordinateType)_chaControl.fileStatus.coordinateType;
+			// Need to do this instead of polling the CurrentCoordinate prop because it's updated too late
+			var coordinateType = (CoordinateType)_chaControl.fileStatus.coordinateType;
 #elif EC
             var coordinateType = CoordinateType.School01;
 #else
             var coordinateType = CoordinateType.Unknown;
 #endif
-            return GetOverlayTextures(coordinateType);
-        }
+			return GetOverlayTextures(coordinateType);
+		}
 
-        private Dictionary<TexType, int> GetOverlayTextures(CoordinateType coordinateType)
-        {
-            _allOverlayTextures.TryGetValue(coordinateType, out var dict);
+		private Dictionary<TexType, int> GetOverlayTextures(CoordinateType coordinateType)
+		{
+			_allOverlayTextures.TryGetValue(coordinateType, out var dict);
 
-            if (dict == null)
-            {
+			if(dict == null)
+			{
 #if KK || KKS
-                if (!IsPerCoord() && _allOverlayTextures.Count > 0)
-                    dict = new Dictionary<TexType, int>(_allOverlayTextures.First().Value);
-                else
+				if(!IsPerCoord() && _allOverlayTextures.Count > 0)
+					dict = new Dictionary<TexType, int>(_allOverlayTextures.First().Value);
+				else
 #endif
-                    dict = new Dictionary<TexType, int>();
-                _allOverlayTextures.Add(coordinateType, dict);
-            }
+					dict = new Dictionary<TexType, int>();
+				_allOverlayTextures.Add(coordinateType, dict);
+			}
 
-            return dict;
-        }
+			return dict;
+		}
 
-        //CoordinateType coordinateType
-        public Texture2D GetTexture(TexType type)
-        {
-            var texs = GetCurrentOverlayTextures();
-            if (texs.TryGetValue(type, out var id))
-                return _textureStorage.GetSharedTexture(id);
+		//CoordinateType coordinateType
+		public Texture2D GetTexture(TexType type)
+		{
+			var texs = GetCurrentOverlayTextures();
+			if(texs.TryGetValue(type, out var id))
+				return _textureStorage.GetSharedTexture(id);
 
-            return null;
-        }
+			return null;
+		}
 
-        public void SetTexture(TexType type, byte[] pngData)
-        {
-            var texs = GetCurrentOverlayTextures();
-            if (pngData == null)
-            {
-                texs.Remove(type);
-            }
-            else
-            {
-                var id = _textureStorage.StoreTexture(pngData);
-                texs[type] = id;
-            }
-        }
+		public void SetTexture(TexType type, byte[] pngData)
+		{
+			var texs = GetCurrentOverlayTextures();
+			if(pngData == null)
+			{
+				texs.Remove(type);
+			}
+			else
+			{
+				var id = _textureStorage.StoreTexture(pngData);
+				texs[type] = id;
+			}
+		}
 
-        public int GetCount(bool onlyCurrentCoord = true)
-        {
-            return onlyCurrentCoord ? GetCurrentOverlayTextures().Count : _allOverlayTextures.Sum(x => x.Value.Count);
-        }
+		public int GetCount(bool onlyCurrentCoord = true)
+		{
+			return onlyCurrentCoord ? GetCurrentOverlayTextures().Count : _allOverlayTextures.Sum(x => x.Value.Count);
+		}
 
-        internal IEnumerable<TexType> GetAllTypes()
-        {
-            return _allOverlayTextures.SelectMany(x => x.Value.Keys);
-        }
+		internal IEnumerable<TexType> GetAllTypes()
+		{
+			return _allOverlayTextures.SelectMany(x => x.Value.Keys);
+		}
 
-        public void Clear()
-        {
-            // Less garbage generated than clearing the whole dict?
-            foreach (var dic in _allOverlayTextures) dic.Value.Clear();
-            _textureStorage.Clear();
-        }
+		public void Clear()
+		{
+			// Less garbage generated than clearing the whole dict?
+			foreach(var dic in _allOverlayTextures) dic.Value.Clear();
+			_textureStorage.Clear();
+		}
 
-        public void Load(PluginData data)
-        {
-            data.data.TryGetValue(OverlayDataKey, out var lookup);
-            if (lookup is byte[] lookuparr)
-            {
-                try
-                {
-                    _allOverlayTextures = MessagePackSerializer.Deserialize<Dictionary<CoordinateType, Dictionary<TexType, int>>>(lookuparr);
-                    _textureStorage.Load(data);
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    if (MakerAPI.InsideMaker)
-                        KoiSkinOverlayMgr.Logger.LogMessage("WARNING: Failed to load embedded overlay data for " + (_chaControl.chaFile?.charaFileName ?? "?"));
-                    else
-                        KoiSkinOverlayMgr.Logger.LogWarning("WARNING: Failed to load embedded overlay data for " + (_chaControl.chaFile?.charaFileName ?? "?"));
-                    KoiSkinOverlayMgr.Logger.LogError(ex);
-                }
-            }
+		public void Load(PluginData data)
+		{
+			data.data.TryGetValue(OverlayDataKey, out var lookup);
+			if(lookup is byte[] lookuparr)
+			{
+				try
+				{
+					_allOverlayTextures = MessagePackSerializer.Deserialize<Dictionary<CoordinateType, Dictionary<TexType, int>>>(lookuparr);
+					_textureStorage.Load(data);
+					return;
+				}
+				catch(Exception ex)
+				{
+					if(MakerAPI.InsideMaker)
+						KoiSkinOverlayMgr.Logger.LogMessage("WARNING: Failed to load embedded overlay data for " + (_chaControl.chaFile?.charaFileName ?? "?"));
+					else
+						KoiSkinOverlayMgr.Logger.LogWarning("WARNING: Failed to load embedded overlay data for " + (_chaControl.chaFile?.charaFileName ?? "?"));
+					KoiSkinOverlayMgr.Logger.LogError(ex);
+				}
+			}
 
-            // If anything goes wrong, make sure we are in a sane state
-            Clear();
-        }
+			// If anything goes wrong, make sure we are in a sane state
+			Clear();
+		}
 
-        public void Load(Dictionary<CoordinateType, Dictionary<TexType, byte[]>> overlays)
-        {
-            Clear();
+		public void Load(Dictionary<CoordinateType, Dictionary<TexType, byte[]>> overlays)
+		{
+			Clear();
 
-            foreach (var coordType in overlays)
-            {
-                var textureDic = GetOverlayTextures(coordType.Key);
+			foreach(var coordType in overlays)
+			{
+				var textureDic = GetOverlayTextures(coordType.Key);
 
-                foreach (var texType in coordType.Value)
-                {
-                    if (texType.Value == null)
-                    {
-                        textureDic.Remove(texType.Key);
-                    }
-                    else
-                    {
-                        var id = _textureStorage.StoreTexture(texType.Value, false);
-                        textureDic[texType.Key] = id;
-                    }
-                }
-            }
-        }
+				foreach(var texType in coordType.Value)
+				{
+					if(texType.Value == null)
+					{
+						textureDic.Remove(texType.Key);
+					}
+					else
+					{
+						var id = _textureStorage.StoreTexture(texType.Value, false);
+						textureDic[texType.Key] = id;
+					}
+				}
+			}
+		}
 
-        public void Save(PluginData data)
-        {
-            PurgeUnused();
-            if (GetCount(false) > 0)
-            {
-                _textureStorage.Save(data);
-                data.data[OverlayDataKey] = MessagePackSerializer.Serialize(_allOverlayTextures);
-            }
-        }
+		public void Save(PluginData data)
+		{
+			PurgeUnused();
+			if(GetCount(false) > 0)
+			{
+				_textureStorage.Save(data);
+				data.data[OverlayDataKey] = MessagePackSerializer.Serialize(_allOverlayTextures);
+			}
+		}
 
-        private void PurgeUnused()
-        {
+		private void PurgeUnused()
+		{
 #if KK || KKS
-            var unusedCoords = _allOverlayTextures.Keys.Where(x => (int)x >= _chaControl.chaFile.coordinate.Length).ToList();
-            if (unusedCoords.Count > 0)
-            {
-                KoiSkinOverlayMgr.Logger.LogWarning($"Removing data for missing coordinates: {string.Join(", ", unusedCoords.Select(x => x.ToString()).ToArray())}");
-                foreach (var unusedCoord in unusedCoords)
-                    _allOverlayTextures.Remove(unusedCoord);
-            }
+			var unusedCoords = _allOverlayTextures.Keys.Where(x => (int)x >= _chaControl.chaFile.coordinate.Length).ToList();
+			if(unusedCoords.Count > 0)
+			{
+				KoiSkinOverlayMgr.Logger.LogWarning($"Removing data for missing coordinates: {string.Join(", ", unusedCoords.Select(x => x.ToString()).ToArray())}");
+				foreach(var unusedCoord in unusedCoords)
+					_allOverlayTextures.Remove(unusedCoord);
+			}
 #endif
 
-            _textureStorage.PurgeUnused(_allOverlayTextures.SelectMany(x => x.Value.Values));
+			_textureStorage.PurgeUnused(_allOverlayTextures.SelectMany(x => x.Value.Values));
 
-            var allTextures = _textureStorage.GetAllTextureIDs();
-            foreach (var dic in _allOverlayTextures)
-            {
-                foreach (var invalidEntry in dic.Value.Where(x => !allTextures.Contains(x.Value)).ToList())
-                {
-                    KoiSkinOverlayMgr.Logger.LogWarning($"Invalid texture ID found, entry will be removed: coord={dic.Key} type={invalidEntry.Key} texID={invalidEntry.Value}");
-                    dic.Value.Remove(invalidEntry.Key);
-                }
-            }
-        }
+			var allTextures = _textureStorage.GetAllTextureIDs();
+			foreach(var dic in _allOverlayTextures)
+			{
+				foreach(var invalidEntry in dic.Value.Where(x => !allTextures.Contains(x.Value)).ToList())
+				{
+					KoiSkinOverlayMgr.Logger.LogWarning($"Invalid texture ID found, entry will be removed: coord={dic.Key} type={invalidEntry.Key} texID={invalidEntry.Value}");
+					dic.Value.Remove(invalidEntry.Key);
+				}
+			}
+		}
 
 #if KK || KKS
-        public bool IsPerCoord()
-        {
-            Dictionary<TexType, int> first = null;
-            foreach (var dic in _allOverlayTextures)
-            {
-                if (first == null)
-                    first = dic.Value;
-                else if (!dic.Value.SequenceEqual(first))
-                    return true;
-            }
+		public bool IsPerCoord()
+		{
+			Dictionary<TexType, int> first = null;
+			foreach(var dic in _allOverlayTextures)
+			{
+				if(first == null)
+					first = dic.Value;
+				else if(!dic.Value.SequenceEqual(first))
+					return true;
+			}
 
-            return false;
-        }
+			return false;
+		}
 
-        public void CopyToOtherCoords()
-        {
-            var cur = GetCurrentOverlayTextures();
+		public void CopyToOtherCoords()
+		{
+			var cur = GetCurrentOverlayTextures();
 
-            for (var coordId = 0; coordId < _chaControl.chaFile.coordinate.Length; coordId++)
-            {
-                var other = GetOverlayTextures((CoordinateType)coordId);
-                if (cur == other) continue;
+			for(var coordId = 0; coordId < _chaControl.chaFile.coordinate.Length; coordId++)
+			{
+				var other = GetOverlayTextures((CoordinateType)coordId);
+				if(cur == other) continue;
 
-                other.Clear();
-                foreach (var curval in cur)
-                    other.Add(curval.Key, curval.Value);
-            }
-        }
+				other.Clear();
+				foreach(var curval in cur)
+					other.Add(curval.Key, curval.Value);
+			}
+		}
 #endif
 
 #if KKS
-        internal static void ImportFromKK(PluginData pluginData, Dictionary<int, int?> mapping)
-        {
-            pluginData.data.TryGetValue(OverlayDataKey, out var lookup);
-            if (lookup is byte[] lookuparr)
-            {
-                var dic = MessagePackSerializer.Deserialize<Dictionary<CoordinateType, Dictionary<TexType, int>>>(lookuparr);
-                var outDic = new Dictionary<CoordinateType, Dictionary<TexType, int>>(dic.Count);
+		internal static void ImportFromKK(PluginData pluginData, Dictionary<int, int?> mapping)
+		{
+			pluginData.data.TryGetValue(OverlayDataKey, out var lookup);
+			if(lookup is byte[] lookuparr)
+			{
+				var dic = MessagePackSerializer.Deserialize<Dictionary<CoordinateType, Dictionary<TexType, int>>>(lookuparr);
+				var outDic = new Dictionary<CoordinateType, Dictionary<TexType, int>>(dic.Count);
 
-                foreach (var map in mapping)
-                {
-                    // Discard unused
-                    if (map.Value == null) continue;
+				foreach(var map in mapping)
+				{
+					// Discard unused
+					if(map.Value == null) continue;
 
-                    dic.TryGetValue((CoordinateType)map.Key, out var value);
-                    if (value != null)
-                    {
-                        outDic[(CoordinateType)map.Value.Value] = value;
-                    }
-                }
+					dic.TryGetValue((CoordinateType)map.Key, out var value);
+					if(value != null)
+					{
+						outDic[(CoordinateType)map.Value.Value] = value;
+					}
+				}
 
-                pluginData.data[OverlayDataKey] = MessagePackSerializer.Serialize(outDic);
-            }
-        }
+				pluginData.data[OverlayDataKey] = MessagePackSerializer.Serialize(outDic);
+			}
+		}
 #endif
-    }
+	}
 }

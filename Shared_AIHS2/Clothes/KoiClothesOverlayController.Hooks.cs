@@ -44,7 +44,7 @@ namespace KoiClothesOverlayX
 
                 var clothesCtrl = GetCustomClothesComponent(__instance, kind);
                 if (clothesCtrl != null)
-                    controller.ApplyOverlays(clothesCtrl);
+                    controller.ApplyOverlays(clothesCtrl, (ChaFileDefine.ClothesKind)kind);
             }
 
             private static CmpClothes GetCustomClothesComponent(ChaControl chaControl, int kind)
