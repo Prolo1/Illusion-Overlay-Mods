@@ -70,7 +70,9 @@ namespace KoiClothesOverlayX
 			{
 				try
 				{
+					KoiClothesOverlayGui.Logger.LogDebug("Did it get the texture?");
 					_bytesToLoad = File.ReadAllBytes(texturePath);
+					KoiClothesOverlayGui.Logger.LogDebug("Well ya you dingus");
 				}
 				catch(Exception ex)
 				{
@@ -316,24 +318,24 @@ namespace KoiClothesOverlayX
 
 			var ptn1 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 1", owner));
 			ptn1.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrn1[clothesId],
-				(ctrl, v) => { ctrl.enablePtrn1[clothesId] = v; ctrl.RefreshTexture(clothesId); }
+				(ctrl) => ctrl.enablePtrnCurrent[0][clothesId],
+				(ctrl, v) => { ctrl.enablePtrnCurrent[0][clothesId] = v; ctrl.RefreshTexture(clothesId); }
 				);
 			var ptn2 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 2", owner));
 			ptn2.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrn2[clothesId],
-				(ctrl, v) => { ctrl.enablePtrn2[clothesId] = v; ctrl.RefreshTexture(clothesId); }
+				(ctrl) => ctrl.enablePtrnCurrent[1][clothesId],
+				(ctrl, v) => { ctrl.enablePtrnCurrent[1][clothesId] = v; ctrl.RefreshTexture(clothesId); }
 				);
 			var ptn3 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 3", owner));
 			ptn3.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrn3[clothesId],
-				(ctrl, v) => { ctrl.enablePtrn3[clothesId] = v; ctrl.RefreshTexture(clothesId); }
+				(ctrl) => ctrl.enablePtrnCurrent[2][clothesId],
+				(ctrl, v) => { ctrl.enablePtrnCurrent[2][clothesId] = v; ctrl.RefreshTexture(clothesId); }
 				);
 #if !AI && !HS2
 			var ptn4 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 4", owner));
 			ptn4.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrn4[clothesId],
-				(ctrl, v) => { ctrl.enablePtrn4[clothesId] = v; ctrl.RefreshTexture(clothesId); }
+				(ctrl) => ctrl.enablePtrnCurrent[3][clothesId],
+				(ctrl, v) => { ctrl.enablePtrnCurrent[3][clothesId] = v; ctrl.RefreshTexture(clothesId); }
 				);
 #endif
 

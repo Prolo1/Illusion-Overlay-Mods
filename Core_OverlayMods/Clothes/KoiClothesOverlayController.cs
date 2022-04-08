@@ -12,11 +12,14 @@ using ExtensibleSaveFormat;
 using KKAPI.Utilities;
 #if KK || KKS
 using CoordinateType = ChaFileDefine.CoordinateType;
+using ClothesKind = ChaFileDefine.ClothesKind;
 using KKAPI.Studio;
 using Studio;
 #elif EC
+using ClothesKind = ChaFileDefine.ClothesKind;
 using CoordinateType = KoikatsuCharaFile.ChaFileDefine.CoordinateType;
 #elif AI || HS2
+using ClothesKind = AIChara.ChaFileDefine.ClothesKind;
 using AIChara;
 using KKAPI.Studio;
 using Studio;
@@ -34,6 +37,7 @@ namespace KoiClothesOverlayX
 	public partial class KoiClothesOverlayController : CharaCustomFunctionController
 	{
 		private const string OverlayDataKey = "Overlays";
+		private const string PtrnDataKey = "Patterns";
 
 		private Action<byte[]> _dumpCallback;
 		private string _dumpClothesId;
@@ -42,13 +46,20 @@ namespace KoiClothesOverlayX
 		public bool EnableInStudio { get; set; } = true;
 #endif
 
-		internal Dictionary<string, bool>
-			enablePtrn1 = new Dictionary<string, bool>(),
-			enablePtrn2 = new Dictionary<string, bool>(),
-			enablePtrn3 = new Dictionary<string, bool>(),
-			enablePtrn4 = new Dictionary<string, bool>();
+
+		public Dictionary<string, bool>[] enablePtrnCurrent { get; set; } = new Dictionary<string, bool>[4] {
+			new Dictionary<string, bool>(),new Dictionary<string, bool>(),
+			new Dictionary<string, bool>(),new Dictionary<string, bool>()};
+
+		private Dictionary<CoordinateType, Dictionary<string, bool>>[]
+			_enablePtrn = new Dictionary<CoordinateType, Dictionary<string, bool>>[4] {
+			new Dictionary<CoordinateType, Dictionary<string, bool>>(),new Dictionary<CoordinateType, Dictionary<string, bool>>(),
+			new Dictionary<CoordinateType, Dictionary<string, bool>>(),new Dictionary<CoordinateType, Dictionary<string, bool>>()};
 
 		private Dictionary<CoordinateType, Dictionary<string, ClothesTexData>> _allOverlayTextures;
+	
+
+
 		private Dictionary<string, ClothesTexData> CurrentOverlayTextures
 		{
 			get
@@ -114,6 +125,7 @@ namespace KoiClothesOverlayX
 				RefreshTexture(clothesId);
 			}
 		}
+
 
 
 		public static bool IsMaskKind(string clothesId)
@@ -253,7 +265,7 @@ namespace KoiClothesOverlayX
 
 				// Triggered by ForceClothesReload on top so not necessary
 				//for (var i = 0; i < ChaControl.cusClothesSubCmp.Length; i++)
-				//    ChaControl.ChangeCustomClothes(false, i, true, false, false, false, false);
+				//    ChaControl.ChangeCustomClothes(false, i, true, true, true, true, true);
 			}
 #elif EC
             if (MakerAPI.InsideMaker && onlyMasks)
@@ -364,7 +376,7 @@ namespace KoiClothesOverlayX
 				var i = Array.FindIndex(ChaControl.objClothes, x => x != null && x.name == texType);
 				if(i >= 0)
 				{
-					ChaControl.ChangeCustomClothes(i, true, false, false, false);
+					ChaControl.ChangeCustomClothes(i, true, true, true, true);
 					return;
 				}
 			}
@@ -392,6 +404,7 @@ namespace KoiClothesOverlayX
 			CleanupTextureList();
 
 			SetOverlayExtData(_allOverlayTextures, data);
+			SetPtrnFlagsExtData(_enablePtrn, data);
 
 #if !EC
 			if(!EnableInStudio) data.data[nameof(EnableInStudio)] = EnableInStudio;
@@ -408,6 +421,7 @@ namespace KoiClothesOverlayX
 			if(anyPrevious)
 				RemoveAllOverlays();
 
+			RemoveAllPtrnFlags();
 #if !EC
 			EnableInStudio = true;
 #endif
@@ -416,6 +430,7 @@ namespace KoiClothesOverlayX
 			if(pd != null)
 			{
 				_allOverlayTextures = ReadOverlayExtData(pd);
+				_enablePtrn = ReadPtrnFlagsExtData<CoordinateType, Dictionary<string, bool>>(pd);
 #if !EC
 				EnableInStudio = !pd.data.TryGetValue(nameof(EnableInStudio), out var val1) || !(val1 is bool) || (bool)val1;
 #endif
@@ -424,17 +439,36 @@ namespace KoiClothesOverlayX
 			if(_allOverlayTextures == null)
 				_allOverlayTextures = new Dictionary<CoordinateType, Dictionary<string, ClothesTexData>>();
 
+			for(int a = 0; a < _enablePtrn.Length; ++a)
+			{
+				if(_enablePtrn[a] == null)
+					_enablePtrn[a] = new Dictionary<CoordinateType, Dictionary<string, bool>>();
+
+				_enablePtrn[a].TryGetValue((CoordinateType)ChaControl.GetNowClothesType(), out enablePtrnCurrent[a]);
+				if(enablePtrnCurrent[a] == null)
+					enablePtrnCurrent[a] = new Dictionary<string, bool>();
+			}
+
 			if(anyPrevious || _allOverlayTextures.Any())
 				StartCoroutine(RefreshAllTexturesCo());
 		}
 
-		private static void SetOverlayExtData(Dictionary<CoordinateType, Dictionary<string, ClothesTexData>> allOverlayTextures, PluginData data)
+		private static void SetOverlayExtData(Dictionary<CoordinateType, Dictionary<string, ClothesTexData>> allOverlayTextures, in PluginData data)
 		{
 			if(allOverlayTextures.Count > 0)
 				data.data[OverlayDataKey] = MessagePackSerializer.Serialize(allOverlayTextures);
 			else
 				data.data.Remove(OverlayDataKey);
 		}
+		private static void SetPtrnFlagsExtData<T, U>(Dictionary<T, U>[] allPtrnFlags, in PluginData data)
+		{
+			for(int a = 0; a < 4; ++a)
+				if(allPtrnFlags[a].Count > 0)
+					data.data[$"{PtrnDataKey}{a}"] = MessagePackSerializer.Serialize(allPtrnFlags[a]);
+				else
+					data.data.Remove($"{PtrnDataKey}{a}");
+		}
+
 
 		private static Dictionary<CoordinateType, Dictionary<string, ClothesTexData>> ReadOverlayExtData(PluginData pd)
 		{
@@ -446,6 +480,21 @@ namespace KoiClothesOverlayX
 
 			return null;
 		}
+		private static Dictionary<T, U>[] ReadPtrnFlagsExtData<T, U>(PluginData pd)
+		{
+			List<Dictionary<T, U>> tmp = new List<Dictionary<T, U>>();
+			for(int a = 0; a < 4; ++a)
+				if(pd.data.TryGetValue($"{PtrnDataKey}{a}", out var overlayData))
+				{
+					if(overlayData is byte[] ptrnFlagBytes)
+						tmp.Add(ReadPtrnFlagsExtData<T, U>(ptrnFlagBytes));
+				}
+				else
+					tmp.Add(new Dictionary<T, U>());
+
+			return tmp.ToArray();
+		}
+
 
 		private static Dictionary<CoordinateType, Dictionary<string, ClothesTexData>> ReadOverlayExtData(byte[] overlayBytes)
 		{
@@ -466,6 +515,25 @@ namespace KoiClothesOverlayX
 				return null;
 			}
 		}
+		private static Dictionary<T, U> ReadPtrnFlagsExtData<T, U>(byte[] ptrnBytes)
+		{
+			try
+			{
+				return MessagePackSerializer.Deserialize<
+					Dictionary<T, U>>(
+					ptrnBytes);
+			}
+			catch(Exception ex)
+			{
+				if(MakerAPI.InsideMaker)
+					KoiSkinOverlayMgr.Logger.LogMessage("WARNING: Failed to load clothes pattern flags data");
+				else
+					KoiSkinOverlayMgr.Logger.LogDebug("WARNING: Failed to load clothes pattern flags data");
+				KoiSkinOverlayMgr.Logger.LogError(ex);
+
+				return null;
+			}
+		}
 
 		protected override void OnCoordinateBeingSaved(ChaFileCoordinate coordinate)
 		{
@@ -477,6 +545,7 @@ namespace KoiClothesOverlayX
 				data = new PluginData { version = 1 };
 				data.data.Add(OverlayDataKey, MessagePackSerializer.Serialize(CurrentOverlayTextures));
 			}
+			SetPtrnFlagsExtData(enablePtrnCurrent, data);
 
 			SetCoordinateExtendedData(coordinate, data);
 		}
@@ -500,6 +569,7 @@ namespace KoiClothesOverlayX
 						currentOverlayTextures.Add(texData.Key, texData.Value);
 				}
 			}
+			enablePtrnCurrent = ReadPtrnFlagsExtData<string, bool>(data);
 
 			StartCoroutine(RefreshAllTexturesCo());
 		}
@@ -548,42 +618,15 @@ namespace KoiClothesOverlayX
 				return;
 			}
 
-			CustomTextureCreate ptrnTex = null;
-			bool ptrnEnabled = (enablePtrn1[clothesName] || enablePtrn2[clothesName] || enablePtrn3[clothesName] || enablePtrn4[clothesName]);
-			if(ptrnEnabled)
-			{
-				KoiClothesOverlayGui.Logger.LogDebug($"this is the overlay OBJ: {clothesCtrl.gameObject.name}");
+			CoordinateType type = (CoordinateType)ChaControl.GetNowClothesType();
 
-				if(ChaControl.ctCreateClothes.Length > 0)
-					ptrnTex = ChaControl.ctCreateClothes[(int)kind, 0];
-				KoiClothesOverlayGui.Logger.LogDebug($"created cloths overlay");
+			bool ptrnEnabled =
+				(enablePtrnCurrent[0].TryGetValue(clothesName, out var tmper) || enablePtrnCurrent[1].TryGetValue(clothesName, out tmper)
+				|| enablePtrnCurrent[2].TryGetValue(clothesName, out tmper) || enablePtrnCurrent[3].TryGetValue(clothesName, out tmper));
 
-				if(overlay.Texture != null)
-				{
+			KoiClothesOverlayGui.Logger.LogDebug($"this is the overlay OBJ: {clothesCtrl.gameObject.name}");
+			CustomTextureCreate ptrnTex = CreateOverlayTexture(type, kind, overlay.Texture, clothesName, ptrnEnabled);
 
-#if AI || HS2
-					if(enablePtrn1[clothesName])
-						ptrnTex.SetTexture(ChaShader.PatternMask1, overlay.Texture ?? new Texture2D(512, 512));
-					if(enablePtrn2[clothesName])
-						ptrnTex.SetTexture(ChaShader.PatternMask2, overlay.Texture ?? new Texture2D(512, 512));
-					if(enablePtrn3[clothesName])
-						ptrnTex.SetTexture(ChaShader.PatternMask3, overlay.Texture ?? new Texture2D(512, 512));
-#else
-					if(enablePtrn1[clothesName])
-						ptrnTex.SetTexture(ChaShader._PatternMask1, overlay.Texture ?? new Texture2D(512, 512));
-					if(enablePtrn2[clothesName])
-						ptrnTex.SetTexture(ChaShader._PatternMask2, overlay.Texture ?? new Texture2D(512, 512));
-					if(enablePtrn3[clothesName])
-						ptrnTex.SetTexture(ChaShader._PatternMask3, overlay.Texture ?? new Texture2D(512, 512));
-					if(enablePtrn4[clothesName])
-						ptrnTex.SetTexture(ChaShader._PatternMask4, overlay.Texture ?? new Texture2D(512, 512));
-#endif
-				}
-				//holder.width = Mathf.Min(holder.width, holder.height);
-				//holder.height = Mathf.Min(holder.width, holder.height);
-
-				KoiClothesOverlayGui.Logger.LogDebug($"set new  texture");
-			}
 
 			foreach(var renderer in applicableRenderers)
 			{
@@ -611,6 +654,57 @@ namespace KoiClothesOverlayX
 					KoiSkinOverlayController.ApplyOverlay(mainTexture, ptrnEnabled ? tmp : overlay.Texture);
 				KoiClothesOverlayGui.Logger.LogDebug($"applied texture overlay");
 			}
+		}
+
+		private CustomTextureCreate CreateOverlayTexture(CoordinateType type, ChaFileDefine.ClothesKind kind, Texture overlay, string clothesName, bool ptrnEnabled)
+		{
+			CustomTextureCreate ptrnTex = null;
+
+			if(ptrnEnabled)
+			{
+
+				if(ChaControl.ctCreateClothes.Length <= 0) return ptrnTex;
+
+				ptrnTex = ChaControl.ctCreateClothes[(int)kind, 0];
+
+				KoiClothesOverlayGui.Logger.LogDebug($"created cloths overlay");
+
+				if(overlay != null)
+				{
+
+#if AI || HS2
+					int[] masks = new int[] { ChaShader.PatternMask1, ChaShader.PatternMask2, ChaShader.PatternMask3 };
+					int maxi = 3;
+#else
+					int[] masks = new int[]{
+						ChaShader._PatternMask1, ChaShader._PatternMask2,
+						ChaShader._PatternMask3, ChaShader._PatternMask4 };
+					int maxi = 4;
+#endif
+					for(int a = 0; a < maxi; ++a)
+					{
+
+						KoiClothesOverlayGui.Logger.LogDebug($"get overlay flag");
+						if(enablePtrnCurrent[a].TryGetValue(clothesName, out var tmp))//I intentionally set the value here
+						{
+							ptrnTex.SetTexture(masks[a], overlay ?? new Texture2D(512, 512));
+
+							KoiClothesOverlayGui.Logger.LogDebug($"set overlay flag");
+
+							if(_enablePtrn[a] == null)
+								_enablePtrn[a] = new Dictionary<CoordinateType, Dictionary<string, bool>>();
+
+							KoiClothesOverlayGui.Logger.LogDebug($"set overlay flag p2");
+
+							_enablePtrn[a][type] = new Dictionary<string, bool>(enablePtrnCurrent[a]);
+						}
+					}
+				}
+
+
+				KoiClothesOverlayGui.Logger.LogDebug($"set new  texture");
+			}
+			return ptrnTex;
 		}
 
 		private void CleanupTextureList()
@@ -685,6 +779,11 @@ namespace KoiClothesOverlayX
 				textures.Value?.Dispose();
 
 			_allOverlayTextures = null;
+		}
+		private void RemoveAllPtrnFlags()
+		{
+			foreach(var flag in _enablePtrn)
+				flag?.Clear();
 		}
 	}
 }

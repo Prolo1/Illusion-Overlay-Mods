@@ -73,6 +73,7 @@ namespace KoiClothesOverlayX
                     if (data.TryGetValue(KoiClothesOverlayMgr.GUID, out var pluginData) && pluginData != null)
                     {
                         var dic = ReadOverlayExtData(pluginData);
+                      
                         // Map coords into a new dictionary based on the mapping
                         var outDic = new Dictionary<ChaFileDefine.CoordinateType, Dictionary<string, ClothesTexData>>(dic.Count);
                         foreach (var map in mapping)
