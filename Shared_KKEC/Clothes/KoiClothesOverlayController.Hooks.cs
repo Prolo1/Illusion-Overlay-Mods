@@ -139,7 +139,7 @@ namespace KoiClothesOverlayX
                 controller.ApplyOverlays(clothesCtrl,(ChaFileDefine.ClothesKind)kind);
             }
 
-            private static ChaClothesComponent GetCustomClothesComponent(ChaControl chaControl, bool main, int kind)
+            public static ChaClothesComponent GetCustomClothesComponent(ChaControl chaControl, bool main, int kind)
             {
                 // for top clothes it fires once at start with first bool true (main load), then for each subpart with bool false
                 // if true, objClothes are used, if false objParts                

@@ -12,6 +12,14 @@ using KKAPI.Utilities;
 using KoiSkinOverlayX;
 using UniRx;
 using UnityEngine;
+using KKAPI;
+#if KK || KKS
+using CoordinateType = ChaFileDefine.CoordinateType;
+
+#elif EC
+using CoordinateType = KoikatsuCharaFile.ChaFileDefine.CoordinateType;
+#endif
+
 #if !EC
 using KKAPI.Studio;
 using KKAPI.Studio.UI;
@@ -158,7 +166,7 @@ namespace KoiClothesOverlayX
 				new KeyValuePair<string, string>("tglSocks", "ct_socks"),
 #if KK 
                 new KeyValuePair<string, string>("tglInnerShoes", "ct_shoes_inner"),
-                new KeyValuePair<string, string>("tglOuterShoes", "ct_shoes_outer")
+				new KeyValuePair<string, string>("tglOuterShoes", "ct_shoes_outer")
 #elif EC
                 new KeyValuePair<string, string>("tglShoes", "ct_shoes"),
 #elif KKS
@@ -317,27 +325,82 @@ namespace KoiClothesOverlayX
 		{
 
 			var ptn1 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 1", owner));
-			ptn1.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrnCurrent[0][clothesId],
-				(ctrl, v) => { ctrl.enablePtrnCurrent[0][clothesId] = v; ctrl.RefreshTexture(clothesId); }
-				);
+
 			var ptn2 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 2", owner));
-			ptn2.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrnCurrent[1][clothesId],
-				(ctrl, v) => { ctrl.enablePtrnCurrent[1][clothesId] = v; ctrl.RefreshTexture(clothesId); }
-				);
+
 			var ptn3 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 3", owner));
-			ptn3.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrnCurrent[2][clothesId],
-				(ctrl, v) => { ctrl.enablePtrnCurrent[2][clothesId] = v; ctrl.RefreshTexture(clothesId); }
-				);
+
 #if !AI && !HS2
 			var ptn4 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 4", owner));
-			ptn4.BindToFunctionController<KoiClothesOverlayController, bool>(
-				(ctrl) => ctrl.enablePtrnCurrent[3][clothesId],
-				(ctrl, v) => { ctrl.enablePtrnCurrent[3][clothesId] = v; ctrl.RefreshTexture(clothesId); }
-				);
 #endif
+			void AttachValues()
+			{
+				var ctrl = GetOverlayController();
+
+#if KK || KKS
+				// Need to do this instead of polling the CurrentCoordinate prop because it's updated too late
+				var coordinateType = (CoordinateType)ctrl.ChaControl.fileStatus.coordinateType;
+#else
+				var coordinateType = (CoordinateType)ctrl.ChaControl.GetNowClothesType();
+#endif
+
+				//ctrl.ptrnFlagChange.AddListener(() => { Logger.LogDebug($"changing internal value: {clothesId}"); ptn1.Value = ctrl.enablePtrnCurrent[0][clothesId]; });
+				//ctrl.ptrnFlagChange.AddListener(() => { Logger.LogDebug($"changing internal value: {clothesId}"); ptn2.Value = ctrl.enablePtrnCurrent[1][clothesId]; });
+				//ctrl.ptrnFlagChange.AddListener(() => { Logger.LogDebug($"changing internal value: {clothesId}"); ptn3.Value = ctrl.enablePtrnCurrent[2][clothesId]; });
+
+				ptn1.ValueChanged.Subscribe(val =>
+				{
+					var tmp = new List<Dictionary<string, bool>>();
+					foreach(var valu in ctrl.enablePtrnCurrent)
+						tmp.Add(new Dictionary<string, bool>(valu));
+
+					tmp[0][clothesId] = val;
+					//	Logger.LogDebug($"changing toggle value: {clothesId}"); 
+					ctrl.enablePtrnCurrent = tmp.ToArray();
+					ctrl.RefreshTexture(clothesId);
+				});
+				ptn2.ValueChanged.Subscribe(val =>
+				{
+					var tmp = new List<Dictionary<string, bool>>();
+					foreach(var valu in ctrl.enablePtrnCurrent)
+						tmp.Add(new Dictionary<string, bool>(valu));
+
+					tmp[1][clothesId] = val;
+					//	Logger.LogDebug($"changing toggle value: {clothesId}"); 
+					ctrl.enablePtrnCurrent = tmp.ToArray();
+					ctrl.RefreshTexture(clothesId);
+				});
+				ptn3.ValueChanged.Subscribe(val =>
+				{
+					var tmp = new List<Dictionary<string, bool>>();
+					foreach(var valu in ctrl.enablePtrnCurrent)
+						tmp.Add(new Dictionary<string, bool>(valu));
+
+					tmp[2][clothesId] = val;
+					//	Logger.LogDebug($"changing toggle value: {clothesId}");
+					ctrl.enablePtrnCurrent = tmp.ToArray();
+					ctrl.RefreshTexture(clothesId);
+				});
+#if !AI && !HS2
+
+				ptn4.ValueChanged.Subscribe(val =>
+				{
+					var tmp = new List<Dictionary<string, bool>>();
+					foreach(var valu in ctrl.enablePtrnCurrent)
+						tmp.Add(new Dictionary<string, bool>(valu));
+
+					tmp[3][clothesId] = val;
+					//	Logger.LogDebug($"changing toggle value: {clothesId}");
+					ctrl.enablePtrnCurrent = tmp.ToArray();
+					ctrl.RefreshTexture(clothesId);
+				});
+#endif
+
+
+			}
+
+			AttachValues();//don't ask questions
+
 
 			_refreshInterface.Subscribe(
 				cat =>
@@ -349,10 +412,14 @@ namespace KoiClothesOverlayX
 					var visible = renderer?.material?.mainTexture != null;
 
 					ptn1.Visible.OnNext(visible);
+					ptn1.Value = ctrl.enablePtrnCurrent[0].TryGetValue(clothesId, out var val) ? val : false;
 					ptn2.Visible.OnNext(visible);
+					ptn2.Value = ctrl.enablePtrnCurrent[1].TryGetValue(clothesId, out val) ? val : false;
 					ptn3.Visible.OnNext(visible);
+					ptn3.Value = ctrl.enablePtrnCurrent[2].TryGetValue(clothesId, out val) ? val : false;
 #if !AI && !HS2
 					ptn4.Visible.OnNext(visible);
+					ptn4.Value = ctrl.enablePtrnCurrent[3].TryGetValue(clothesId, out val) ? val : false;
 #endif
 				}
 			);
