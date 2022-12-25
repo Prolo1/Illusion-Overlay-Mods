@@ -306,12 +306,21 @@ namespace KoiSkinOverlayX
                 case TexType.EyeOverR:
                     cc.ChangeSettingEye(true, true, true);
                     break;
+                case TexType.EyebrowUnder:
+                    cc.ChangeSettingEyebrow();
+                    break;
+                case TexType.EyelineUnder:
+                    cc.ChangeSettingEyelineUp();
+                    break;
                 default:
                     cc.AddUpdateCMBodyTexFlags(true, true, true, true, true);
                     cc.CreateBodyTexture();
                     cc.AddUpdateCMFaceTexFlags(true, true, true, true, true, true, true);
                     cc.CreateFaceTexture();
                     cc.ChangeSettingEye(true, true, true);
+                    cc.ChangeSettingEyebrow();
+                    cc.ChangeSettingEyelineUp();
+                    //cc.ChangeSettingEyelineDown();
                     break;
             }
 #elif AI || HS2
@@ -339,12 +348,20 @@ namespace KoiSkinOverlayX
                 case TexType.EyeOver:
                     cc.ChangeEyesKind(2);
                     break;
+                case TexType.EyebrowUnder:
+                    cc.ChangeEyebrowKind();
+                    break;
+                case TexType.EyelineUnder:
+                    cc.ChangeEyelashesKind();
+                    break;
                 default:
                     cc.AddUpdateCMBodyTexFlags(true, true, true, true);
                     cc.CreateBodyTexture();
                     cc.AddUpdateCMFaceTexFlags(true, true, true, true, true, true, true);
                     cc.CreateFaceTexture();
                     cc.ChangeEyesKind(2);
+                    cc.ChangeEyebrowKind();
+                    cc.ChangeEyelashesKind();
                     break;
             }
 #endif
@@ -394,7 +411,6 @@ namespace KoiSkinOverlayX
                                 lastStatus = TexType.Unknown;
                                 goto ExitLoop;
                             }
-
                             break;
                         case TexType.FaceOver:
                         case TexType.FaceUnder:
@@ -403,7 +419,6 @@ namespace KoiSkinOverlayX
                                 lastStatus = TexType.Unknown;
                                 goto ExitLoop;
                             }
-
                             break;
                         case TexType.EyeUnder:
                         case TexType.EyeOver:
@@ -411,12 +426,25 @@ namespace KoiSkinOverlayX
                         case TexType.EyeOverL:
                         case TexType.EyeUnderR:
                         case TexType.EyeOverR:
-                            if (lastStatus < TexType.EyeUnder)
+                            if (lastStatus < TexType.EyeUnder || lastStatus > TexType.EyeOverR)
                             {
                                 lastStatus = TexType.Unknown;
                                 goto ExitLoop;
                             }
-
+                            break;
+                        case TexType.EyebrowUnder:
+                            if (lastStatus != TexType.EyebrowUnder)
+                            {
+                                lastStatus = TexType.Unknown;
+                                goto ExitLoop;
+                            }
+                            break;
+                        case TexType.EyelineUnder: //todo kk shadow overlay goes here if ever added
+                            if (lastStatus != TexType.EyelineUnder)
+                            {
+                                lastStatus = TexType.Unknown;
+                                goto ExitLoop;
+                            }
                             break;
                     }
                 }

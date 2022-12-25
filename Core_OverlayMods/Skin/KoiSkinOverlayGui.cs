@@ -82,10 +82,10 @@ namespace KoiSkinOverlayX
 
         private void OnFileAccept(string[] strings, TexType type)
         {
-            if(strings == null || strings.Length == 0) return;
+            if (strings == null || strings.Length == 0) return;
 
             var texPath = strings[0];
-            if(string.IsNullOrEmpty(texPath)) return;
+            if (string.IsNullOrEmpty(texPath)) return;
 
             _typeToLoad = type;
 
@@ -95,7 +95,7 @@ namespace KoiSkinOverlayX
                 {
                     _bytesToLoad = File.ReadAllBytes(texturePath);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     _bytesToLoad = null;
                     _lastError = ex;
@@ -105,15 +105,15 @@ namespace KoiSkinOverlayX
             ReadTex(texPath);
 
             _texChangeWatcher?.Dispose();
-            if(WatchLoadedTexForChanges.Value)
+            if (WatchLoadedTexForChanges.Value)
             {
                 var directory = Path.GetDirectoryName(texPath);
-                if(directory != null)
+                if (directory != null)
                 {
                     _texChangeWatcher = new FileSystemWatcher(directory, Path.GetFileName(texPath));
                     _texChangeWatcher.Changed += (sender, args) =>
                     {
-                        if(File.Exists(texPath))
+                        if (File.Exists(texPath))
                             ReadTex(texPath);
                     };
                     _texChangeWatcher.Deleted += (sender, args) => _texChangeWatcher?.Dispose();
@@ -179,16 +179,22 @@ namespace KoiSkinOverlayX
         {
 #if KK || KKS || EC
             var irisCategory = MakerConstants.Face.Iris;
-            var eyeCategory = new MakerCategory(irisCategory.CategoryName, "tglEyeOverlayKSOX", irisCategory.Position + 5, "Iris Overlays");
-            var irisTemplateName = "Get iris overlay template";
+            var eyeCategory = new MakerCategory(irisCategory.CategoryName, "tglEyeOverlayKSOX", irisCategory.Position + 5, "Eye Overlays");
+            const string irisTemplateName = "Get iris template";
+            const string eyelinerTemplateName = "Get eyeliner/eyebrow template";
 #else
-            var eyeCategory = new MakerCategory(MakerConstants.Face.CategoryName, "overlayModIris", 11111, "Iris Overlays");
-            var irisTemplateName = "Get iris underlay template";
+            var eyeCategory = new MakerCategory(MakerConstants.Face.CategoryName, "overlayModIris", 11111, "Eye Overlays");
+            const string irisTemplateName = "Get iris underlay template";
+            const string eyelinerTemplateName = "Get eyelashes/eyeliner template";
 #endif
+
             e.AddSubCategory(eyeCategory);
 
             e.AddControl(new MakerButton(irisTemplateName, eyeCategory, owner))
                 .OnClick.AddListener(() => WriteAndOpenPng(ResourceUtils.GetEmbeddedResource("eye.png"), "Iris template"));
+
+            e.AddControl(new MakerButton(eyelinerTemplateName, eyeCategory, owner))
+                .OnClick.AddListener(() => WriteAndOpenPng(ResourceUtils.GetEmbeddedResource("eyeline.png"), "Eyeliner template"));
 
             AddConfigSettings(e, owner, eyeCategory, 1);
 
@@ -199,6 +205,14 @@ namespace KoiSkinOverlayX
             e.AddControl(new MakerSeparator(eyeCategory, owner));
 
             SetupTexControls(e, eyeCategory, owner, TexType.EyeUnder, "Iris underlay texture (Before coloring and effects)");
+
+            e.AddControl(new MakerSeparator(eyeCategory, owner));
+
+            SetupTexControls(e, eyeCategory, owner, TexType.EyelineUnder, "Eyelashes override texture (Before coloring and effects)");
+
+            e.AddControl(new MakerSeparator(eyeCategory, owner));
+
+            SetupTexControls(e, eyeCategory, owner, TexType.EyebrowUnder, "Eyebrow override texture (Before coloring and effects)");
         }
 
         private static void AddConfigSettings(RegisterSubCategoriesEvent e, KoiSkinOverlayMgr owner, MakerCategory makerCategory, int id)
@@ -213,7 +227,7 @@ namespace KoiSkinOverlayX
             _tPerCoord[id].BindToFunctionController<KoiSkinOverlayController, bool>(c => c.OverlayStorage.IsPerCoord(),
                 (c, value) =>
                 {
-                    if(!value) c.OverlayStorage.CopyToOtherCoords();
+                    if (!value) c.OverlayStorage.CopyToOtherCoords();
                     _tPerCoord[otherId].SetValue(value, false);
                 });
 
@@ -224,7 +238,7 @@ namespace KoiSkinOverlayX
 
         public static void WriteAndOpenPng(byte[] pngData, string dumpType)
         {
-            if(pngData == null) throw new ArgumentNullException(nameof(pngData));
+            if (pngData == null) throw new ArgumentNullException(nameof(pngData));
             var filename = GetUniqueTexDumpFilename(dumpType);
             File.WriteAllBytes(filename, pngData);
             Util.OpenFileInExplorer(filename);
@@ -236,7 +250,7 @@ namespace KoiSkinOverlayX
             var overlay = ctrl.SetOverlayTex(tex, texType);
 
 #if KK || KKS
-            if(!_tPerCoord[0].Value) ctrl.OverlayStorage.CopyToOtherCoords();
+            if (!_tPerCoord[0].Value) ctrl.OverlayStorage.CopyToOtherCoords();
 #endif
 
             _textureChanged.OnNext(new KeyValuePair<TexType, Texture2D>(texType, overlay));
@@ -250,13 +264,13 @@ namespace KoiSkinOverlayX
 
             TexType GetTexType(bool cantBeBoth)
             {
-                if(radButtons != null)
+                if (radButtons != null)
                 {
-                    if(radButtons.Value == 0)
+                    if (radButtons.Value == 0)
                         return cantBeBoth ? texType + 2 : texType; // left or both
-                    if(radButtons.Value == 1)
+                    if (radButtons.Value == 1)
                         return texType + 2; // left
-                    if(radButtons.Value == 2)
+                    if (radButtons.Value == 2)
                         return texType + 4; // right
                 }
                 return texType;
@@ -265,37 +279,33 @@ namespace KoiSkinOverlayX
             e.AddControl(new MakerText(title, makerCategory, owner));
 
             var forceAllowBoth = false;
-            var bi = e.AddControl(new MakerImage(null, makerCategory, owner) { Height = 150, Width = 150 });
+            var size = Util.GetRecommendedTexSize(texType);
+            var bi = e.AddControl(new MakerImage(null, makerCategory, owner) { Width = Mathf.RoundToInt(150 * ((float)size.Width / size.Height)), Height = 150 });
             _textureChanged.Subscribe(
                 d =>
                 {
                     var incomingType = d.Key;
-                    if(!forceAllowBoth)
+                    if (!forceAllowBoth)
                     {
                         // If left and right images are different, and we have Both selected, change selection to Left instead
                         var currentType = GetTexType(false);
-                        if(radButtons != null && (currentType == TexType.EyeOver && incomingType == TexType.EyeOverR || currentType == TexType.EyeUnder && incomingType == TexType.EyeUnderR))
+                        if (radButtons != null && (currentType == TexType.EyeOver && incomingType == TexType.EyeOverR || currentType == TexType.EyeUnder && incomingType == TexType.EyeUnderR))
                         {
                             var leftTex = GetTex(GetTexType(true));
-                            if(d.Value != leftTex)
+                            if (d.Value != leftTex)
                                 radButtons.Value = 1;
                             else
                                 radButtons.Value = 0;
                         }
                     }
 
-                    if(incomingType == GetTexType(true) || incomingType == GetTexType(false))
+                    if (incomingType == GetTexType(true) || incomingType == GetTexType(false))
                         bi.Texture = d.Value;
                 });
 
             e.AddControl(new MakerButton("Load new texture", makerCategory, owner))
                 .OnClick.AddListener(
-                    () => OpenFileDialog.Show(
-                        strings => OnFileAccept(strings, GetTexType(false)),
-                        "Open overlay image",
-                        GetDefaultLoadDir(),
-                        FileFilter,
-                        FileExt));
+                    () => OpenFileDialog.Show(strings => OnFileAccept(strings, GetTexType(false)), "Open overlay image", GetDefaultLoadDir(), FileFilter, FileExt));
 
             e.AddControl(new MakerButton("Clear texture", makerCategory, owner))
                 .OnClick.AddListener(() => SetTexAndUpdate(null, GetTexType(false)));
@@ -307,13 +317,13 @@ namespace KoiSkinOverlayX
                         try
                         {
                             var tex = GetTex(GetTexType(true));
-                            if(tex == null) return;
+                            if (tex == null) return;
                             // Fix being unable to save some texture formats with EncodeToPNG
                             var texCopy = tex.ToTexture2D();
                             WriteAndOpenPng(texCopy.EncodeToPNG(), GetTexType(false).ToString());
                             Destroy(texCopy);
                         }
-                        catch(Exception ex)
+                        catch (Exception ex)
                         {
                             Logger.LogMessage("Failed to export texture - " + ex.Message);
                         }
@@ -342,10 +352,10 @@ namespace KoiSkinOverlayX
 
         private void Awake()
         {
-            WatchLoadedTexForChanges = Config.Bind("Maker", "Watch loaded texture for changes", true);
+            WatchLoadedTexForChanges = Config.AddSetting("Maker", "Watch loaded texture for changes", true);
             WatchLoadedTexForChanges.SettingChanged += (sender, args) =>
             {
-                if(!WatchLoadedTexForChanges.Value)
+                if (!WatchLoadedTexForChanges.Value)
                     _texChangeWatcher?.Dispose();
             };
         }
@@ -353,7 +363,7 @@ namespace KoiSkinOverlayX
         private void Start()
         {
 #if !EC
-            if(StudioAPI.InsideStudio)
+            if (StudioAPI.InsideStudio)
             {
                 enabled = false;
                 var cat = StudioAPI.GetOrCreateCurrentStateCategory("Overlays");
@@ -361,7 +371,7 @@ namespace KoiSkinOverlayX
                     c => c.charInfo.GetComponent<KoiSkinOverlayController>().EnableInStudioSkin)).Value.Subscribe(
                     v => StudioAPI.GetSelectedControllers<KoiSkinOverlayController>().Do(c =>
                     {
-                        if(c.EnableInStudioSkin != v)
+                        if (c.EnableInStudioSkin != v)
                         {
                             c.EnableInStudioSkin = v;
                             c.UpdateTexture(TexType.Unknown);
@@ -371,10 +381,11 @@ namespace KoiSkinOverlayX
                     c => c.charInfo.GetComponent<KoiSkinOverlayController>().EnableInStudioIris)).Value.Subscribe(
                     v => StudioAPI.GetSelectedControllers<KoiSkinOverlayController>().Do(c =>
                     {
-                        if(c.EnableInStudioIris != v)
+                        if (c.EnableInStudioIris != v)
                         {
                             c.EnableInStudioIris = v;
                             c.UpdateTexture(TexType.EyeUnder);
+                            c.UpdateTexture(TexType.EyebrowUnder);
                         }
                     }));
                 return;
@@ -388,28 +399,29 @@ namespace KoiSkinOverlayX
 
         private void Update()
         {
-            if(_bytesToLoad != null)
+            if (_bytesToLoad != null)
             {
                 try
                 {
                     var tex = Util.TextureFromBytes(_bytesToLoad, TextureFormat.ARGB32);
 
                     var recommendedSize = Util.GetRecommendedTexSize(_typeToLoad);
-                    if(tex.width != tex.height || tex.height != recommendedSize)
-                        Logger.LogMessage($"WARNING - Unusual texture resolution! It's recommended to use {recommendedSize}x{recommendedSize} for {_typeToLoad}.");
-                    else
+                    if ((tex.width == recommendedSize.Width && tex.height == recommendedSize.Height) ||
+                        (tex.width == recommendedSize.Width * 2 && tex.height == recommendedSize.Height * 2))
                         Logger.LogMessage("Texture imported successfully");
+                    else
+                        Logger.LogMessage($"WARNING - Unusual texture resolution! It's recommended to use {recommendedSize} for {_typeToLoad}.");
 
-                    SetTexAndUpdate(tex.EncodeToPNG(), _typeToLoad);  //todo see if original is smaller size?
+                    SetTexAndUpdate(tex.EncodeToPNG(), _typeToLoad);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     _lastError = ex;
                 }
                 _bytesToLoad = null;
             }
 
-            if(_lastError != null)
+            if (_lastError != null)
             {
                 Logger.LogMessage("Failed to load texture from file - " + _lastError.Message);
                 KoiSkinOverlayMgr.Logger.LogDebug(_lastError);
@@ -419,7 +431,7 @@ namespace KoiSkinOverlayX
 
         private void OnChaFileLoaded()
         {
-            if(!MakerAPI.InsideMaker) return;
+            if (!MakerAPI.InsideMaker) return;
 
             _texChangeWatcher?.Dispose();
 
@@ -429,7 +441,7 @@ namespace KoiSkinOverlayX
 
         private void UpdateInterface(KoiSkinOverlayController ctrl)
         {
-            foreach(TexType texType in Enum.GetValues(typeof(TexType)))
+            foreach (TexType texType in Enum.GetValues(typeof(TexType)))
             {
                 var tex = ctrl.OverlayStorage.GetTexture(texType);
                 _textureChanged.OnNext(new KeyValuePair<TexType, Texture2D>(texType, tex));

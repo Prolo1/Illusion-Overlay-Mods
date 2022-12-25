@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace KoiSkinOverlayX
 {
-    internal static class Util
+    public static class Util
     {
         public static bool InsideStudio()
         {
@@ -58,43 +58,70 @@ namespace KoiSkinOverlayX
             private static extern void ILFree(IntPtr pidl);
         }
 
-        public static int GetRecommendedTexSize(TexType texType)
+        public struct TexSize
+        {
+            public readonly int Width;
+            public readonly int Height;
+            public TexSize(int width, int height)
+            {
+                Width = width;
+                Height = height;
+            }
+            public TexSize(int size)
+            {
+                Width = size;
+                Height = size;
+            }
+            public override string ToString()
+            {
+                return Width + "x" + Height;
+            }
+        }
+
+        public static TexSize GetRecommendedTexSize(TexType texType)
         {
             switch (texType)
             {
 #if KK || KKS || EC
                 case TexType.BodyOver:
                 case TexType.BodyUnder:
-                    return 2048;
+                    return new TexSize(2048);
                 case TexType.FaceOver:
                 case TexType.FaceUnder:
-                    return 1024;
+                    return new TexSize(1024);
                 case TexType.EyeUnder:
                 case TexType.EyeOver:
                 case TexType.EyeUnderL:
                 case TexType.EyeOverL:
                 case TexType.EyeUnderR:
                 case TexType.EyeOverR:
-                    return 512;
+                case TexType.EyebrowUnder:
+                case TexType.EyelineUnder:
+                    return new TexSize(512);
 #elif AI || HS2
                 case TexType.BodyOver:
                 case TexType.BodyUnder:
                 case TexType.FaceOver:
                 case TexType.FaceUnder:
-                    return 4096;
+                    return new TexSize(4096);
                 case TexType.EyeUnder:
                 case TexType.EyeOver:
                 case TexType.EyeUnderL:
                 case TexType.EyeOverL:
                 case TexType.EyeUnderR:
                 case TexType.EyeOverR:
-                    return 512;
+                    return new TexSize(512);
+                case TexType.EyebrowUnder:
+                    return new TexSize(1024);
+                case TexType.EyelineUnder:
+                    return new TexSize(1024, 512);
 #endif
                 default:
                     throw new ArgumentOutOfRangeException(nameof(texType), texType, null);
             }
         }
 
+        public static RenderTexture CreateRT(TexSize size) => CreateRT(size.Width, size.Height);
         public static RenderTexture CreateRT(int origWidth, int origHeight)
         {
             var rt = new RenderTexture(origWidth, origHeight, 0);
