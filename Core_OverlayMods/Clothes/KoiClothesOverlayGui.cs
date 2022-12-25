@@ -78,9 +78,7 @@ namespace KoiClothesOverlayX
 			{
 				try
 				{
-					KoiClothesOverlayGui.Logger.LogDebug("Did it get the texture?");
 					_bytesToLoad = File.ReadAllBytes(texturePath);
-					KoiClothesOverlayGui.Logger.LogDebug("Well ya you dingus");
 				}
 				catch(Exception ex)
 				{
@@ -247,7 +245,6 @@ namespace KoiClothesOverlayX
 
 				if(!clothesId.ToLower().Contains("top") || clothesId.ToLower().Contains("clothestop"))
 					AddPatternOptions(e, makerCategory, owner, clothesId);
-
 			}
 
 			var controlLoad = e.AddControl(new MakerButton("Load new " + texType, makerCategory, owner));
@@ -324,13 +321,16 @@ namespace KoiClothesOverlayX
 		private void AddPatternOptions(RegisterCustomControlsEvent e, MakerCategory makerCategory, BaseUnityPlugin owner, string clothesId)
 		{
 
+
+			var repeat = e.AddControl(new MakerToggle(makerCategory, "Enable Repeat", owner));
+
 			var ptn1 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 1", owner));
 
 			var ptn2 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 2", owner));
 
 			var ptn3 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 3", owner));
 
-#if !AI && !HS2
+#if !(AI || HS2)
 			var ptn4 = e.AddControl(new MakerToggle(makerCategory, "Enable as pattern 4", owner));
 #endif
 			void AttachValues()
@@ -347,6 +347,12 @@ namespace KoiClothesOverlayX
 				//ctrl.ptrnFlagChange.AddListener(() => { Logger.LogDebug($"changing internal value: {clothesId}"); ptn1.Value = ctrl.enablePtrnCurrent[0][clothesId]; });
 				//ctrl.ptrnFlagChange.AddListener(() => { Logger.LogDebug($"changing internal value: {clothesId}"); ptn2.Value = ctrl.enablePtrnCurrent[1][clothesId]; });
 				//ctrl.ptrnFlagChange.AddListener(() => { Logger.LogDebug($"changing internal value: {clothesId}"); ptn3.Value = ctrl.enablePtrnCurrent[2][clothesId]; });
+
+				repeat.ValueChanged.Subscribe(val => {
+
+					ctrl.repeatPtnTex = val;
+					ctrl.RefreshTexture(clothesId);
+				});
 
 				ptn1.ValueChanged.Subscribe(val =>
 				{
@@ -381,7 +387,7 @@ namespace KoiClothesOverlayX
 					ctrl.enablePtrnCurrent = tmp.ToArray();
 					ctrl.RefreshTexture(clothesId);
 				});
-#if !AI && !HS2
+#if !(AI || HS2)
 
 				ptn4.ValueChanged.Subscribe(val =>
 				{
@@ -411,13 +417,17 @@ namespace KoiClothesOverlayX
 					var renderer = ctrl?.GetApplicableRenderers(clothesId)?.FirstOrDefault();
 					var visible = renderer?.material?.mainTexture != null;
 
+
+					repeat.Visible.OnNext(visible);
+					repeat.Value = ctrl.repeatPtnTex;
+
 					ptn1.Visible.OnNext(visible);
 					ptn1.Value = ctrl.enablePtrnCurrent[0].TryGetValue(clothesId, out var val) ? val : false;
 					ptn2.Visible.OnNext(visible);
 					ptn2.Value = ctrl.enablePtrnCurrent[1].TryGetValue(clothesId, out val) ? val : false;
 					ptn3.Visible.OnNext(visible);
 					ptn3.Value = ctrl.enablePtrnCurrent[2].TryGetValue(clothesId, out val) ? val : false;
-#if !AI && !HS2
+#if !(AI || HS2)
 					ptn4.Visible.OnNext(visible);
 					ptn4.Value = ctrl.enablePtrnCurrent[3].TryGetValue(clothesId, out val) ? val : false;
 #endif

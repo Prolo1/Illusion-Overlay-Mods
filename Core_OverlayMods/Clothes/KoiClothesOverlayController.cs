@@ -46,7 +46,7 @@ namespace KoiClothesOverlayX
 #if !EC
 		public bool EnableInStudio { get; set; } = true;
 #endif
-
+		public bool repeatPtnTex { get; set; } = false;
 
 		internal Dictionary<string, bool>[] enablePtrnCurrent
 		{
@@ -726,14 +726,17 @@ namespace KoiClothesOverlayX
 				|| enablePtrnCurrent[2].TryGetValue(clothesName, out tmpval) && tmpval
 				|| enablePtrnCurrent[3].TryGetValue(clothesName, out tmpval) && tmpval);
 
+
+			
 			//	KoiClothesOverlayGui.Logger.LogDebug($"this is the overlay OBJ: {clothesCtrl.gameObject.name}");
-			ptrnTex[(int)kind]= CreateOverlayTexture(type, kind, clothesName, overlay.Texture, in ptrnTex[(int)kind], ptrnEnabled);
+			ptrnTex[(int)kind] = CreateOverlayTexture(type, kind, clothesName, overlay.Texture, in ptrnTex[(int)kind], ptrnEnabled);
 
 			Texture tmp = ptrnTex[(int)kind]?.RebuildTextureAndSetMaterial();
 			if(tmp)//not needed but can be useful
 			{
-				tmp.filterMode = FilterMode.Bilinear;
-			
+				//tmp.filterMode = FilterMode.Bilinear;
+				//tmp.wrapMode = repeatPtnTex ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+
 			}
 
 			foreach(var renderer in applicableRenderers)
@@ -741,7 +744,8 @@ namespace KoiClothesOverlayX
 				var mat = renderer.material;
 
 				var mainTexture = mat.mainTexture as RenderTexture;
-				if(mainTexture == null) return;
+				if(mainTexture == null) continue;
+				//mainTexture.wrapMode = repeatPtnTex ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
 
 				if(overlay.Override)
 				{
@@ -753,7 +757,7 @@ namespace KoiClothesOverlayX
 
 
 				if(overlay.Texture != null)
-					KoiSkinOverlayController.ApplyOverlay(mainTexture, ptrnEnabled ? tmp as Texture2D: overlay.Texture);
+					KoiSkinOverlayController.ApplyOverlay(mainTexture, ptrnEnabled ? tmp as Texture2D : overlay.Texture);
 
 				//ptrnTex?.ReleaseCreateMaterial();
 				//		KoiClothesOverlayGui.Logger.LogDebug($"applied texture overlay");
@@ -779,12 +783,15 @@ namespace KoiClothesOverlayX
 
 			if(overlay != null)
 			{
+				overlay.wrapMode = repeatPtnTex ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+			
+				//overlay.filterMode = FilterMode.Bilinear;
 
 				if(ChaControl.ctCreateClothes.Length <= 0) return ptrnTex;
 
 				if(ptrnEnabled)
 				{
-				//	ptrnTex?.Release();
+					//	ptrnTex?.Release();
 					ptrnTex = ChaControl.ctCreateClothes[(int)kind, 0];
 				}
 				//	KoiClothesOverlayGui.Logger.LogDebug($"created cloths overlay");
@@ -802,6 +809,7 @@ namespace KoiClothesOverlayX
 				for(int a = 0; a < maxi; ++a)
 				{
 					bool enabled = false;
+
 					//			KoiClothesOverlayGui.Logger.LogDebug($"get overlay flag");
 					if(enablePtrnCurrent[a]?.TryGetValue(clothesName, out enabled) ?? false)//I intentionally set the value here
 						if(enabled)
